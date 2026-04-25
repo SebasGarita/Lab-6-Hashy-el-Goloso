@@ -61,3 +61,93 @@ INSERT INTO inventario_pirata (id, nombre_sucio, categoria, precio_finca, priori
 -- ==========================================================
 -- Los únicos IDs que deben generar un Hash al final son el 3 y el 7.
 -- La consulta final debe devolver: hash(ID 3) # hash(ID 7)
+
+
+
+-- INTEGRANTE B: Sebastián Garita
+-- Llaves 3 y 4: fn_espia_tortuga y fn_purificador
+
+-- LLAVE 3 — fn_espia_tortuga
+SET GLOBAL log_bin_trust_function_creators = 1;
+
+DROP FUNCTION IF EXISTS fn_espia_tortuga;
+
+CREATE FUNCTION fn_espia_tortuga(
+    p_cat   VARCHAR(100),
+    p_prec  DECIMAL(10,2)
+)
+RETURNS DECIMAL(3,2)
+DETERMINISTIC
+BEGIN
+    DECLARE v_precio_mercado DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_factor         DECIMAL(3,2)  DEFAULT 1.0;
+ 
+    IF p_cat IS NULL OR p_prec IS NULL THEN
+        RETURN NULL;
+    END IF;
+ 
+    SELECT precio_referencia
+    INTO   v_precio_mercado
+    FROM   mercado_negro
+    WHERE  categoria = p_cat
+    LIMIT  1;
+ 
+    IF v_precio_mercado IS NULL OR v_precio_mercado = 0 THEN
+        RETURN NULL;
+    END IF;
+ 
+    IF p_prec > v_precio_mercado THEN
+        SET v_factor = 1.2;
+    ELSE
+        SET v_factor = 0.8;
+    END IF;
+ 
+    RETURN v_factor;
+END
+
+
+-- PRUEBAS DE fn_espia_tortuga
+SELECT
+    id,
+    nombre_sucio,
+    categoria,
+    precio_finca,
+    fn_espia_tortuga(categoria, precio_finca) AS factor_calculado
+FROM inventario_pirata;
+
+-- LLAVE 4 — fn_purificador
+
+
+DROP FUNCTION IF EXISTS fn_purificador;
+
+
+CREATE FUNCTION fn_purificador(
+    p_nombre TEXT
+)
+RETURNS TEXT
+DETERMINISTIC
+BEGIN
+    DECLARE v_texto_limpio TEXT DEFAULT '';
+    IF p_nombre IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    SET v_texto_limpio = REGEXP_REPLACE(p_nombre, '[^a-zA-ZÀ-ÿ]', '');
+    SET v_texto_limpio = TRIM(v_texto_limpio);
+   
+    IF v_texto_limpio = '' THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN v_texto_limpio;
+end;
+
+
+-- PRUEBAS DE fn_purificador
+SELECT
+    id,
+    nombre_sucio,
+    fn_purificador(nombre_sucio) AS nombre_limpio
+FROM inventario_pirata;
+
+
