@@ -64,7 +64,127 @@ INSERT INTO inventario_pirata (id, nombre_sucio, categoria, precio_finca, priori
 
 
 
--- INTEGRANTE B: Sebastián Garita
+-- ==========================================================
+-- LLAVES 1 Y 2
+-- Laboratorio: Hashy el Goloso - TEC Arquitectura de Datos
+-- ==========================================================
+
+-- ----------------------------------------------------------
+-- LLAVE 1: fn_cernidor
+-- Recibe el ID del producto y verifica si es un numero primo.
+-- Retorna TRUE si es primo, FALSE si no lo es.
+-- Numeros primos en el inventario: 2, 3, 5, 7
+-- Numeros NO primos: 1, 4, 6
+-- ----------------------------------------------------------
+
+DROP FUNCTION IF EXISTS fn_cernidor;
+
+
+CREATE FUNCTION fn_cernidor(p_id INT)
+RETURNS BOOLEAN
+DETERMINISTIC
+BEGIN
+    DECLARE v_divisor INT;
+    DECLARE v_es_primo BOOLEAN;
+
+    -- Paso 1: Los numeros menores a 2 no son primos
+    IF p_id < 2 THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Paso 2: El 2 es el unico primo par, se retorna directo
+    IF p_id = 2 THEN
+        RETURN TRUE;
+    END IF;
+
+    -- Paso 3: Cualquier numero par mayor a 2 no es primo
+    IF MOD(p_id, 2) = 0 THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Paso 4: Revisar divisores impares desde 3 hasta la raiz cuadrada del numero
+    SET v_divisor = 3;
+    SET v_es_primo = TRUE;
+
+    WHILE v_divisor <= FLOOR(SQRT(p_id)) DO
+        IF MOD(p_id, v_divisor) = 0 THEN
+            SET v_es_primo = FALSE;
+            SET v_divisor = p_id; -- Forzar salida del ciclo
+        END IF;
+        SET v_divisor = v_divisor + 2;
+    END WHILE;
+
+    -- Paso 5: Retornar el resultado
+    RETURN v_es_primo;
+end;
+
+
+-- Pruebas de la Llave 1
+-- Resultados esperados segun el inventario:
+SELECT fn_cernidor(1) AS es_primo; -- Esperado: FALSE 
+SELECT fn_cernidor(2) AS es_primo; -- Esperado: TRUE
+SELECT fn_cernidor(3) AS es_primo; -- Esperado: TRUE
+SELECT fn_cernidor(4) AS es_primo; -- Esperado: FALSE
+SELECT fn_cernidor(5) AS es_primo; -- Esperado: TRUE
+SELECT fn_cernidor(6) AS es_primo; -- Esperado: FALSE
+SELECT fn_cernidor(7) AS es_primo; -- Esperado: TRUE
+
+-- Verificacion directa contra la tabla
+SELECT id, fn_cernidor(id) AS es_primo
+FROM inventario_pirata;
+-- Solo los IDs 2, 3, 5 y 7 deben dar TRUE
+
+
+-- ----------------------------------------------------------
+-- LLAVE 2: fn_reloj_arena
+-- Recibe la fecha de ingreso y la cantidad de meses de validez.
+-- Suma los meses a la fecha y compara con la fecha actual.
+-- Retorna 'Fresco' si aun no vence, 'Expirado' si ya vencio.
+-- ----------------------------------------------------------
+
+DROP FUNCTION IF EXISTS fn_reloj_arena;
+
+CREATE FUNCTION fn_reloj_arena(p_fecha DATE, p_meses INT)
+RETURNS VARCHAR(10)
+DETERMINISTIC
+BEGIN
+    DECLARE v_fecha_vencimiento DATE;
+    DECLARE v_estado            VARCHAR(10);
+
+    -- Paso 1: Calcular la fecha de vencimiento sumando los meses de validez
+    SET v_fecha_vencimiento = DATE_ADD(p_fecha, INTERVAL p_meses MONTH);
+
+    -- Paso 2: Comparar la fecha de vencimiento con la fecha actual del sistema
+    IF v_fecha_vencimiento >= CURDATE() THEN
+        SET v_estado = 'Fresco';
+    ELSE
+        SET v_estado = 'Expirado';
+    END IF;
+
+    -- Paso 3: Retornar el estado
+    RETURN v_estado;
+end;
+
+-- Pruebas de la Llave 2
+-- Fecha de referencia del script: 2026-04-25
+SELECT fn_reloj_arena('2026-02-15', 6)  AS estado; -- Vence 2026-08-15 -> Esperado: Fresco
+SELECT fn_reloj_arena('2025-10-01', 3)  AS estado; -- Vence 2026-01-01 -> Esperado: Expirado
+SELECT fn_reloj_arena('2026-03-01', 12) AS estado; -- Vence 2027-03-01 -> Esperado: Fresco
+SELECT fn_reloj_arena('2026-01-10', 5)  AS estado; -- Vence 2026-06-10 -> Esperado: Fresco
+SELECT fn_reloj_arena('2025-12-01', 2)  AS estado; -- Vence 2026-02-01 -> Esperado: Expirado
+SELECT fn_reloj_arena('2026-04-10', 8)  AS estado; -- Vence 2026-12-10 -> Esperado: Fresco
+SELECT fn_reloj_arena('2026-04-01', 10) AS estado; -- Vence 2027-02-01 -> Esperado: Fresco
+
+-- Verificacion directa contra la tabla
+SELECT id, fecha_ingreso, meses_validez,
+       DATE_ADD(fecha_ingreso, INTERVAL meses_validez MONTH) AS fecha_vencimiento,
+       fn_reloj_arena(fecha_ingreso, meses_validez)          AS estado
+FROM inventario_pirata;
+-- IDs 2 y 5 deben aparecer como Expirado, el resto como Fresco
+
+
+
+-- INTEGRANTE B: Sebastián Garita-------------------
 -- Llaves 3 y 4: fn_espia_tortuga y fn_purificador
 
 -- LLAVE 3 — fn_espia_tortuga
@@ -103,7 +223,7 @@ BEGIN
     END IF;
  
     RETURN v_factor;
-END
+end;
 
 
 -- PRUEBAS DE fn_espia_tortuga
@@ -149,128 +269,126 @@ SELECT
     nombre_sucio,
     fn_purificador(nombre_sucio) AS nombre_limpio
 FROM inventario_pirata;
--- ==========================================================
--- LLAVES 1 Y 2
--- Laboratorio: Hashy el Goloso - TEC Arquitectura de Datos
--- ==========================================================
 
--- ----------------------------------------------------------
--- LLAVE 1: fn_cernidor
--- Recibe el ID del producto y verifica si es un numero primo.
--- Retorna TRUE si es primo, FALSE si no lo es.
--- Numeros primos en el inventario: 2, 3, 5, 7
--- Numeros NO primos: 1, 4, 6
--- ----------------------------------------------------------
 
-DROP FUNCTION IF EXISTS fn_cernidor;
 
-DELIMITER $$
+--Llaves 5,6 y 7
 
-CREATE FUNCTION fn_cernidor(p_id INT)
-RETURNS BOOLEAN
+
+-- Permitir creación de funciones que modifican datos
+SET GLOBAL log_bin_trust_function_creators = 1;
+
+
+-- LLAVE 5: fn_escultor
+-- Aplica UPPER/LOWER según el factor recibido y agrega sufijo
+DROP FUNCTION IF EXISTS fn_escultor;
+
+CREATE FUNCTION fn_escultor(p_nombre TEXT, p_factor DECIMAL(3,2))
+RETURNS TEXT
 DETERMINISTIC
 BEGIN
-    DECLARE v_divisor INT;
-    DECLARE v_es_primo BOOLEAN;
+    DECLARE v_texto_transformado TEXT DEFAULT '';
+    DECLARE v_sufijo VARCHAR(50) DEFAULT '';
+    DECLARE v_resultado TEXT DEFAULT '';
 
-    -- Paso 1: Los numeros menores a 2 no son primos
-    IF p_id < 2 THEN
-        RETURN FALSE;
-    END IF;
-
-    -- Paso 2: El 2 es el unico primo par, se retorna directo
-    IF p_id = 2 THEN
-        RETURN TRUE;
-    END IF;
-
-    -- Paso 3: Cualquier numero par mayor a 2 no es primo
-    IF MOD(p_id, 2) = 0 THEN
-        RETURN FALSE;
-    END IF;
-
-    -- Paso 4: Revisar divisores impares desde 3 hasta la raiz cuadrada del numero
-    SET v_divisor = 3;
-    SET v_es_primo = TRUE;
-
-    WHILE v_divisor <= FLOOR(SQRT(p_id)) DO
-        IF MOD(p_id, v_divisor) = 0 THEN
-            SET v_es_primo = FALSE;
-            SET v_divisor = p_id; -- Forzar salida del ciclo
-        END IF;
-        SET v_divisor = v_divisor + 2;
-    END WHILE;
-
-    -- Paso 5: Retornar el resultado
-    RETURN v_es_primo;
-END$$
-
-DELIMITER ;
-
--- Pruebas de la Llave 1
--- Resultados esperados segun el inventario:
-SELECT fn_cernidor(1) AS es_primo; -- Esperado: FALSE (1 no es primo)
-SELECT fn_cernidor(2) AS es_primo; -- Esperado: TRUE
-SELECT fn_cernidor(3) AS es_primo; -- Esperado: TRUE
-SELECT fn_cernidor(4) AS es_primo; -- Esperado: FALSE
-SELECT fn_cernidor(5) AS es_primo; -- Esperado: TRUE
-SELECT fn_cernidor(6) AS es_primo; -- Esperado: FALSE
-SELECT fn_cernidor(7) AS es_primo; -- Esperado: TRUE
-
--- Verificacion directa contra la tabla
-SELECT id, fn_cernidor(id) AS es_primo
-FROM inventario_pirata;
--- Solo los IDs 2, 3, 5 y 7 deben dar TRUE
-
-
--- ----------------------------------------------------------
--- LLAVE 2: fn_reloj_arena
--- Recibe la fecha de ingreso y la cantidad de meses de validez.
--- Suma los meses a la fecha y compara con la fecha actual.
--- Retorna 'Fresco' si aun no vence, 'Expirado' si ya vencio.
--- ----------------------------------------------------------
-
-DROP FUNCTION IF EXISTS fn_reloj_arena;
-
-DELIMITER $$
-
-CREATE FUNCTION fn_reloj_arena(p_fecha DATE, p_meses INT)
-RETURNS VARCHAR(10)
-DETERMINISTIC
-BEGIN
-    DECLARE v_fecha_vencimiento DATE;
-    DECLARE v_estado            VARCHAR(10);
-
-    -- Paso 1: Calcular la fecha de vencimiento sumando los meses de validez
-    SET v_fecha_vencimiento = DATE_ADD(p_fecha, INTERVAL p_meses MONTH);
-
-    -- Paso 2: Comparar la fecha de vencimiento con la fecha actual del sistema
-    IF v_fecha_vencimiento >= CURDATE() THEN
-        SET v_estado = 'Fresco';
+    -- Manejo de nulidad: si entra NULL, devolvemos texto vacío
+    IF p_nombre IS NULL OR p_factor IS NULL THEN
+        SET v_resultado = '';
     ELSE
-        SET v_estado = 'Expirado';
+        -- Si el factor indica alta prioridad (>1), mayúsculas
+        IF p_factor > 1 THEN
+            SET v_texto_transformado = UPPER(p_nombre);
+            SET v_sufijo = '_PREMIUM';
+        ELSE
+            SET v_texto_transformado = LOWER(p_nombre);
+            SET v_sufijo = '_basico';
+        END IF;
+        SET v_resultado = CONCAT(v_texto_transformado, v_sufijo);
     END IF;
 
-    -- Paso 3: Retornar el estado
-    RETURN v_estado;
-END$$
-
-DELIMITER ;
-
--- Pruebas de la Llave 2
--- Fecha de referencia del script: 2026-04-25
-SELECT fn_reloj_arena('2026-02-15', 6)  AS estado; -- Vence 2026-08-15 -> Esperado: Fresco
-SELECT fn_reloj_arena('2025-10-01', 3)  AS estado; -- Vence 2026-01-01 -> Esperado: Expirado
-SELECT fn_reloj_arena('2026-03-01', 12) AS estado; -- Vence 2027-03-01 -> Esperado: Fresco
-SELECT fn_reloj_arena('2026-01-10', 5)  AS estado; -- Vence 2026-06-10 -> Esperado: Fresco
-SELECT fn_reloj_arena('2025-12-01', 2)  AS estado; -- Vence 2026-02-01 -> Esperado: Expirado
-SELECT fn_reloj_arena('2026-04-10', 8)  AS estado; -- Vence 2026-12-10 -> Esperado: Fresco
-SELECT fn_reloj_arena('2026-04-01', 10) AS estado; -- Vence 2027-02-01 -> Esperado: Fresco
-
--- Verificacion directa contra la tabla
-SELECT id, fecha_ingreso, meses_validez,
-       DATE_ADD(fecha_ingreso, INTERVAL meses_validez MONTH) AS fecha_vencimiento,
-       fn_reloj_arena(fecha_ingreso, meses_validez)          AS estado
-FROM inventario_pirata;
--- IDs 2 y 5 deben aparecer como Expirado, el resto como Fresco
+    RETURN v_resultado;
+END;
 
 
+-- LLAVE 6: fn_notario
+-- Inserta en logs_hashy y retorna el texto sin modificarlo
+-- Incluye DECLARE EXIT HANDLER para manejo de excepciones (+5%)
+DROP FUNCTION IF EXISTS fn_notario;
+
+CREATE FUNCTION fn_notario(p_texto TEXT)
+RETURNS TEXT
+MODIFIES SQL DATA
+begin
+----- Punto extra --------
+----- Punto extra --------
+----- Punto extra --------
+    DECLARE v_mensaje TEXT DEFAULT '';
+    DECLARE v_texto_seguro TEXT DEFAULT '';
+
+    -- Manejo de excepciones: si algo falla, no rompemos el pipeline
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        RETURN COALESCE(p_texto, '');
+    END;
+----- Punto extra --------
+----- Punto extra --------
+----- Punto extra --------
+
+    -- Manejo de nulidad
+    IF p_texto IS NULL THEN
+        SET v_texto_seguro = '[NULO]';
+    ELSE
+        SET v_texto_seguro = p_texto;
+    END IF;
+
+    SET v_mensaje = CONCAT('Pipeline procesado - Estado: ', v_texto_seguro);
+
+    -- INSERT en la bitácora (fecha y usuario tienen DEFAULT)
+    INSERT INTO logs_hashy (nombre_funcion, mensaje_accion)
+    VALUES ('fn_notario', v_mensaje);
+
+    RETURN v_texto_seguro;
+END;
+
+
+-- LLAVE 7: fn_gran_sello
+-- Aplica MD5 al texto final y devuelve hash de longitud fija
+DROP FUNCTION IF EXISTS fn_gran_sello;
+
+CREATE FUNCTION fn_gran_sello(p_texto TEXT)
+RETURNS VARCHAR(64)
+DETERMINISTIC
+BEGIN
+    DECLARE v_texto_base TEXT DEFAULT '';
+    DECLARE v_sello_final VARCHAR(64) DEFAULT '';
+
+    IF p_texto IS NULL THEN
+        SET v_texto_base = '';
+    ELSE
+        SET v_texto_base = p_texto;
+    END IF;
+
+    SET v_sello_final = SHA2(v_texto_base, 256);
+
+    RETURN v_sello_final;
+END
+
+
+-- CONSULTA MAESTRA - PIPELINE DE LAS 7 LLAVES
+-- Resultado esperado: hash MD5 de los IDs 3 y 7 separados por #
+SELECT
+    GROUP_CONCAT(
+        fn_gran_sello(
+            fn_notario(
+                fn_escultor(
+                    fn_purificador(nombre_sucio),
+                    fn_espia_tortuga(categoria, precio_finca)
+                )
+            )
+        )
+        ORDER BY id ASC
+        SEPARATOR ' # '
+    ) AS result
+FROM inventario_pirata
+WHERE fn_cernidor(id) = true
+AND fn_reloj_arena(fecha_ingreso, meses_validez) = 'Fresco';
