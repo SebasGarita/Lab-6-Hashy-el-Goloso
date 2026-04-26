@@ -61,3 +61,102 @@ INSERT INTO inventario_pirata (id, nombre_sucio, categoria, precio_finca, priori
 -- ==========================================================
 -- Los únicos IDs que deben generar un Hash al final son el 3 y el 7.
 -- La consulta final debe devolver: hash(ID 3) # hash(ID 7)
+--===========================================================
+
+-- ==========================================================
+-- LLAVES 3 Y 4
+-- Rama: feature/mercado-limpieza
+-- Laboratorio: Hashy el Goloso - TEC Arquitectura de Datos
+-- ==========================================================
+
+-- ----------------------------------------------------------
+-- LLAVE 3: fn_espia_tortuga
+-- Consulta el precio de referencia en mercado_negro y
+-- retorna el factor 1.2 (si precio_finca > mercado)
+-- o 0.8 (si precio_finca <= mercado).
+-- ----------------------------------------------------------
+
+DROP FUNCTION IF EXISTS fn_espia_tortuga;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_espia_tortuga(p_cat VARCHAR(100), p_prec DECIMAL(10,2))
+RETURNS DECIMAL(3,2)
+DETERMINISTIC
+BEGIN
+    DECLARE v_precio_mercado DECIMAL(10,2);
+    DECLARE v_factor         DECIMAL(3,2);
+
+    -- Paso 1: Obtener el precio de referencia del mercado negro para esa categoria
+    SELECT precio_referencia
+    INTO   v_precio_mercado
+    FROM   mercado_negro
+    WHERE  categoria = p_cat;
+
+    -- Paso 2: Si no se encontro la categoria, usar factor neutro para evitar nulos
+    IF v_precio_mercado IS NULL THEN
+        SET v_factor = 1.0;
+    -- Paso 3: Comparar precio de finca vs precio de mercado
+    ELSEIF p_prec > v_precio_mercado THEN
+        SET v_factor = 1.2;
+    ELSE
+        SET v_factor = 0.8;
+    END IF;
+
+    -- Paso 4: Retornar el factor calculado
+    RETURN v_factor;
+END$$
+
+DELIMITER ;
+
+-- Pruebas de la Llave 3
+-- Gomitas: precio_referencia = 20.00
+SELECT fn_espia_tortuga('Gomitas', 22.00) AS factor; -- Esperado: 1.2  (22 > 20)
+SELECT fn_espia_tortuga('Gomitas', 18.00) AS factor; -- Esperado: 0.8  (18 <= 20)
+-- Chocolates: precio_referencia = 45.00
+SELECT fn_espia_tortuga('Chocolates', 55.00) AS factor; -- Esperado: 1.2 (55 > 45)
+SELECT fn_espia_tortuga('Chocolates', 40.00) AS factor; -- Esperado: 0.8 (40 <= 45)
+-- Caramelos: precio_referencia = 15.00
+SELECT fn_espia_tortuga('Caramelos', 12.00) AS factor; -- Esperado: 0.8 (12 <= 15)
+SELECT fn_espia_tortuga('Caramelos', 18.00) AS factor; -- Esperado: 1.2 (18 > 15)
+
+
+-- ----------------------------------------------------------
+-- LLAVE 4: fn_purificador
+-- Recibe el nombre sucio del producto, elimina todo caracter
+-- no alfabetico usando REGEXP_REPLACE y retorna el nombre limpio.
+-- ----------------------------------------------------------
+
+DROP FUNCTION IF EXISTS fn_purificador;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_purificador(p_nombre TEXT)
+RETURNS TEXT
+DETERMINISTIC
+BEGIN
+    DECLARE v_sin_simbolos TEXT;
+    DECLARE v_nombre_limpio TEXT;
+
+    -- Paso 1: Eliminar cualquier caracter que NO sea letra (a-z, A-Z)
+    -- Esto borra guiones, underscores, signos, espacios internos, etc.
+    SET v_sin_simbolos = REGEXP_REPLACE(p_nombre, '[^a-zA-Z]', '');
+
+    -- Paso 2: Eliminar espacios sobrantes al inicio y al final
+    SET v_nombre_limpio = TRIM(v_sin_simbolos);
+
+    -- Paso 3: Retornar la cadena purificada
+    RETURN v_nombre_limpio;
+END$$
+
+DELIMITER ;
+
+-- Pruebas de la Llave 4
+SELECT fn_purificador('  cArr-Amelo_Menta  ')   AS nombre_limpio; -- Esperado: cArrAmeloMenta
+SELECT fn_purificador('CHoco-late...Amargo')     AS nombre_limpio; -- Esperado: CHocolateAmargo
+SELECT fn_purificador(' gomita-O_O-fresa ')      AS nombre_limpio; -- Esperado: gomitaOOfresa
+SELECT fn_purificador('---TRUFA_Oscura---')      AS nombre_limpio; -- Esperado: TRUFAOscura
+SELECT fn_purificador('Caramelo_Salado!!')       AS nombre_limpio; -- Esperado: CarameloSalado
+SELECT fn_purificador('Gomita_Osa')              AS nombre_limpio; -- Esperado: GomitaOsa
+SELECT fn_purificador('  !!Gomita_Mágica??  ')   AS nombre_limpio; -- Esperado: GomitaMgica
+-- ----------------------------------------------------------
